@@ -37,7 +37,7 @@ Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Window
 ./scripts/build-app.sh
 ```
 
-腳本編譯 arm64 release、建立相鄰的 `.app`、進行本機簽章驗證並執行 CoreChecks。CoreChecks 使用獨立 executable 測試框架，因此不依賴 XCTest 執行環境。執行 `./scripts/test.sh` 可重跑核心及繪圖測試；加上 `--live` 可檢查真實畫面擷取。完整測試狀態請看交付的 TEST_REPORT.md。
+腳本編譯 arm64 release、建立相鄰的 `.app`、進行本機簽章驗證並執行 CoreChecks。CoreChecks 使用獨立 executable 測試框架，因此不依賴 XCTest 執行環境。執行 `./scripts/test.sh` 可重跑核心及繪圖測試；加上 `--live` 可檢查真實畫面擷取。
 
 ## 隱私與限制
 
@@ -49,8 +49,8 @@ Repository：<https://github.com/polarbear0827/teaching-focus>（公開）。
 
 下載：<https://github.com/polarbear0827/teaching-focus/releases>。下載 `TeachingFocus-v1.0.0-beta.3-arm64.pkg`，安裝精靈將程式放入 `/Applications/TeachingFocus.app`。本版不需要額外安裝背景服務，套件不包含安裝腳本；系統安裝精靈可能要求管理者授權。
 
-目前為 `v1.0.0-beta.3` 預覽版。**PKG 本身未簽署；內含 app 只有 ad-hoc 本機簽章。尚未 Developer ID 簽署或 Apple 公證，app 的 Gatekeeper 評估為 rejected。** 請見 [簽章報告](SIGNING_REPORT.md)。若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
+目前為 `v1.0.0-beta.3` 預覽版。**PKG 本身未簽署；內含 app 只有 ad-hoc 本機簽章。尚未 Developer ID 簽署或 Apple 公證，app 的 Gatekeeper 評估為 rejected。**若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
 
-本版已加入無文字游標角色與螢光聚光燈 icon。YEYE 未提供特定參考圖，本圖為圓潤俏皮的原創視覺方向。
+本版已加入無文字游標角色與螢光聚光燈 icon。
 
 建立 PKG：先執行 `./scripts/build-app.sh`，再執行 `./scripts/build-pkg.sh`。可用環境變數 `TEACHINGFOCUS_APP_PATH` 指定 app 路徑、`TEACHINGFOCUS_PKG_PATH` 指定 PKG 輸出路徑。
