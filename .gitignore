@@ -1,0 +1,7 @@
+.build/
+.DS_Store
+evidence/*
+!evidence/core-checks.log
+!evidence/render-checks.log
+!evidence/capture-checks.log
+!evidence/packaged-render-checks.log
