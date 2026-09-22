@@ -6,7 +6,7 @@ Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Window
 
 ## 啟動
 
-建議先到 GitHub Releases 下載 DMG 或解壓 ZIP，將 `TeachingFocus.app` 放入「應用程式」後開啟；選單列出現「◎ 教學」。可將 app 複製至「應用程式」後固定使用，避免更換路徑造成權限需要重設。
+建議先到 GitHub Releases 下載 PKG，使用安裝精靈安裝至 `/Applications/TeachingFocus.app` 後開啟；選單列出現「◎ 教學」。可將 app 複製至「應用程式」後固定使用，避免更換路徑造成權限需要重設。
 
 首次使用到「系統設定 → 隱私權與安全性」允許本 app 的「輔助使用」與「螢幕錄製」（部分系統名稱包含系統音訊）；本程式不擷取音訊。授權後請退出並重新開啟。選單列「權限與使用說明」可開啟對應設定。
 
@@ -47,8 +47,10 @@ Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Window
 
 Repository：<https://github.com/polarbear0827/teaching-focus>（公開）。
 
-下載：<https://github.com/polarbear0827/teaching-focus/releases>。DMG 開啟後，將 TeachingFocus 拖入 Applications。ZIP 與 DMG 內的程式相同。
+下載：<https://github.com/polarbear0827/teaching-focus/releases>。下載 `TeachingFocus-v1.0.0-beta.3-arm64.pkg`，安裝精靈將程式放入 `/Applications/TeachingFocus.app`。本版不需要額外安裝背景服務，套件不包含安裝腳本；系統安裝精靈可能要求管理者授權。
 
-目前為 `v1.0.0-beta.2` 預覽版。**只有 ad-hoc 本機簽章；尚未 Developer ID 簽署或 Apple 公證，Gatekeeper 評估為 rejected。** 請見 [簽章報告](SIGNING_REPORT.md)。若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
+目前為 `v1.0.0-beta.3` 預覽版。**PKG 本身未簽署；內含 app 只有 ad-hoc 本機簽章。尚未 Developer ID 簽署或 Apple 公證，app 的 Gatekeeper 評估為 rejected。** 請見 [簽章報告](SIGNING_REPORT.md)。若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
 
 本版已加入無文字游標角色與螢光聚光燈 icon。YEYE 未提供特定參考圖，本圖為圓潤俏皮的原創視覺方向。
+
+建立 PKG：先執行 `./scripts/build-app.sh`，再執行 `./scripts/build-pkg.sh`。可用環境變數 `TEACHINGFOCUS_APP_PATH` 指定 app 路徑、`TEACHINGFOCUS_PKG_PATH` 指定 PKG 輸出路徑。

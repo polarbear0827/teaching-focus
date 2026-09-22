@@ -1,4 +1,4 @@
-# TeachingFocus v1.0.0-beta.2 測試報告
+# TeachingFocus v1.0.0-beta.3 測試報告
 
 日期：2026-09-22。結論：**已產出可試用版本；尚未完成全部現場驗收。**
 
@@ -75,3 +75,7 @@
 ## beta.2 圖示封裝複驗
 
 新增 Assets/AppIcon.png 與 AppIcon.icns，Info.plist 綁定 AppIcon；build number 為 2。重新建置通過 17 項核心測試；含圖示的 app 通過 codesign 嚴格完整性檢查及 34 項離屏檢查。圖示有透明背景、無文字；實際生成提示詞見 Assets/ICON_PROMPT.md。簽章仍為 ad-hoc，Gatekeeper 仍為 rejected，沒有將此狀態標示為正式簽署成功。
+
+## PKG 封裝驗證
+
+`pkgbuild` 產生套件，numeric package version 為 1.0.0.3，內含 app version 1.0.0 / build 2。`pkgutil --expand-full` 成功；PackageInfo 確認路徑固定為 /Applications/TeachingFocus.app、relocatable=false、postinstall-action=none。payload 的 app 嚴格 codesign 驗證通過，34 項繪圖檢查通過；icns 與 repo 資源 hash 一致。PKG 未簽署（no signature）。未執行實際系統安裝或另一台乾淨 Mac 的下載／安裝，因此該流程保持 NOT VERIFIED。
