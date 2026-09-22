@@ -1,4 +1,5 @@
 import AppKit
+import FocusCore
 
 final class PreviewColorWell: NSColorWell {
     override func activate(_ exclusive: Bool) {
@@ -13,6 +14,22 @@ final class FlippedDocument: NSView { override var isFlipped: Bool { true } }
 final class EffectPreview: NSView {
     weak var owner: Controller?
     let halo: Bool
+    private var entrance=SpotlightEntrance()
+    private var animationTimer:Timer?
+    func playAnimation() {
+        guard !halo,let owner else { return }
+        entrance.begin(clockNow(),duration:owner.animationSeconds); needsDisplay=true
+        animationTimer?.invalidate()
+        guard !owner.reduceMotion && owner.bool("spotAnimation",true) else { return }
+        let timer=Timer(timeInterval:1.0/60,repeats:true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            self.needsDisplay=true
+            if !self.entrance.sample(clockNow()).animating { timer.invalidate(); self.animationTimer=nil }
+        }
+        animationTimer=timer; RunLoop.main.add(timer,forMode:.common)
+    }
+    func stopAnimation() { animationTimer?.invalidate(); animationTimer=nil; entrance.reset(); needsDisplay=true }
+    deinit { animationTimer?.invalidate() }
     init(owner: Controller, halo: Bool) { self.owner=owner; self.halo=halo; super.init(frame:NSRect(x:0,y:0,width:240,height:76)) }
     required init?(coder:NSCoder) { fatalError("init(coder:) is not supported") }
     override var intrinsicContentSize:NSSize { NSSize(width:240,height:76) }
@@ -23,12 +40,15 @@ final class EffectPreview: NSView {
         NSColor(white:0.94,alpha:1).setFill(); bounds.fill()
         NSColor(white:0.15,alpha:1).setFill(); NSRect(x:bounds.midX,y:0,width:bounds.width/2,height:bounds.height).fill()
         let center=CGPoint(x:bounds.midX,y:bounds.midY)
-        let radius=halo ? min(33, owner.haloRadius * 0.7) : 25
+        let appearance=entrance.sample(clockNow(),reducedMotion:owner.reduceMotion || !owner.bool("spotAnimation",true))
+        let radius=halo ? min(33, owner.haloRadius * 0.7) : 20 * appearance.scale
         let circle=NSBezierPath(ovalIn:NSRect(x:center.x-radius,y:center.y-radius,width:radius*2,height:radius*2))
-        if halo { owner.haloColor.withAlphaComponent(0.35).setFill(); circle.fill() }
+        if halo { owner.haloColor.withAlphaComponent(owner.haloOpacity).setFill(); circle.fill() }
         else {
-            let shadow=NSShadow(); shadow.shadowColor=owner.borderColor; shadow.shadowBlurRadius=min(14,owner.number("glow",12)); shadow.set()
-            owner.borderColor.setStroke(); circle.lineWidth=owner.number("borderWidth",3); circle.stroke()
+            let shade=NSBezierPath(rect:bounds); shade.append(circle); shade.windingRule = .evenOdd
+            NSColor.black.withAlphaComponent(owner.number("dim",0.6)*appearance.opacity).setFill(); shade.fill()
+            let shadow=NSShadow(); shadow.shadowColor=owner.borderColor.withAlphaComponent(appearance.opacity); shadow.shadowBlurRadius=min(14,owner.number("glow",12)); shadow.set()
+            owner.borderColor.withAlphaComponent(appearance.opacity).setStroke(); circle.lineWidth=owner.number("borderWidth",3); circle.stroke()
         }
         NSGraphicsContext.restoreGraphicsState()
         NSColor.separatorColor.setStroke(); rounded.lineWidth=1; rounded.stroke()
@@ -71,9 +91,15 @@ extension Controller {
     func colorControls(title:String,key:String,selected:NSColor,halo:Bool) -> NSView {
         let well=PreviewColorWell(frame:NSRect(x:0,y:0,width:48,height:28)); well.color=selected; well.identifier=NSUserInterfaceItemIdentifier(key); well.target=self; well.action=#selector(colorChanged(_:)); well.setAccessibilityLabel(title)
         well.widthAnchor.constraint(equalToConstant:48).isActive=true; well.heightAnchor.constraint(equalToConstant:28).isActive=true
+        let value=NSStackView(views:[well]); value.orientation = .vertical; value.alignment = .centerX; value.spacing=3; value.widthAnchor.constraint(equalToConstant:88).isActive=true
+        if halo {
+            let slider=NSSlider(value:haloOpacity,minValue:0,maxValue:1,target:self,action:#selector(slide(_:))); slider.identifier=NSUserInterfaceItemIdentifier("haloOpacity"); slider.widthAnchor.constraint(equalToConstant:88).isActive=true
+            let label=NSTextField(labelWithString:"不透明度 \(Int((haloOpacity*100).rounded()))%"); label.font = .systemFont(ofSize:10); haloOpacityLabel=label
+            value.addArrangedSubview(slider); value.addArrangedSubview(label)
+        }
         let preview=EffectPreview(owner:self,halo:halo); effectPreviews.append(preview)
-        preview.widthAnchor.constraint(equalToConstant:240).isActive=true; preview.heightAnchor.constraint(equalToConstant:64).isActive=true
-        let row=NSStackView(views:[settingsLabel(title),well,preview]); row.spacing=12
+        preview.widthAnchor.constraint(equalToConstant:210).isActive=true; preview.heightAnchor.constraint(equalToConstant:76).isActive=true
+        let row=NSStackView(views:[settingsLabel(title),value,preview]); row.spacing=12
         return row
     }
     func resizeSettingsDocument() {
@@ -94,13 +120,13 @@ extension Controller {
     }
     func restoreDefaultSettings() {
         recorderPanel?.close(); end(); doubleTap.cancel(); hold.cancel(); escape.reset()
-        let keys=["radius","dim","borderWidth","glow","border","spotAnimation","halo","ripples","disableDoubleControl","borderColor","borderColorRGB","haloColorRGB","haloRadius","freezeKey","spotKey","freezeKeyModifiers","spotKeyModifiers","holdSeconds","penWidth"]
+        let keys=["radius","dim","borderWidth","glow","border","spotAnimation","halo","ripples","disableDoubleControl","borderColor","borderColorRGB","haloColorRGB","haloRadius","freezeKey","spotKey","freezeKeyModifiers","spotKeyModifiers","holdSeconds","penWidth","haloOpacity","animationSeconds","particles","particleKind","particleIntensity","floatingPositions"]
         for key in keys { preferences.removeObject(forKey:key) }
         tool=0; colorIndex=0
         NSColorPanel.shared.orderOut(nil)
         settings?.close(); settings=nil; settingsScroll=nil; settingsStack=nil
         effectPreviews.removeAll(); shortcutLabels.removeAll()
-        pauseButton=nil; inputStatusLabel=nil; holdLabel=nil; haloSizeLabel=nil; instructionsLabel=nil
+        haloOpacityLabel=nil; animationTimeLabel=nil; particleIntensityLabel=nil; particlePreview=nil; pauseButton=nil; inputStatusLabel=nil; holdLabel=nil; haloSizeLabel=nil; instructionsLabel=nil
         registerSavedShortcuts(); showSettings(); refreshStatus()
         windows.forEach { $0.contentView?.needsDisplay=true }
     }

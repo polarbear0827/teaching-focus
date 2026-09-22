@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 import FocusCore
 var count = 0
 func check(_ value: @autoclosure () -> Bool, _ name: String) { guard value() else { fatalError("FAIL: \(name)") }; count += 1; print("PASS: \(name)") }
@@ -72,4 +73,42 @@ check(middle.scale > 1 && middle.scale < 1.65 && middle.opacity > 0 && middle.op
 check(entrance.sample(10.25).scale == 1 && !entrance.sample(10.25).animating, "focus animation settles at configured radius")
 check(entrance.sample(10.01,reducedMotion:true).scale == 1 && !entrance.sample(10.01,reducedMotion:true).animating, "reduce motion skips transition")
 entrance.reset(); check(entrance.sample(11).scale == 1, "ending spotlight clears animation")
+entrance.begin(0,duration:1)
+check(entrance.sample(0.25).animating && !entrance.sample(1).animating, "configurable one-second entrance")
+entrance.begin(0,duration:0)
+check(entrance.sample(0.09).animating && !entrance.sample(0.1).animating, "entrance lower bound is 0.1 seconds")
+entrance.begin(0,duration:10)
+check(!entrance.sample(1).animating, "entrance upper bound is one second")
+for kind in ParticleKind.allCases {
+    for level in 1...5 {
+        let burst=ParticleBurst(origin:.zero,born:0,kind:kind,intensity:level)
+        check(burst.samples(at:0.2).count == [6,10,16,24,32][level-1], "particle count style \(kind) level \(level)")
+        check(burst.samples(at:0.6).isEmpty, "particles expire style \(kind) level \(level)")
+    }
+}
+var particles=ParticleBuffer()
+for n in 0..<12 { particles.add(ParticleBurst(origin:.zero,born:Double(n)*0.01,kind:.dots,intensity:2)) }
+check(particles.bursts.count==8 && particles.bursts.first!.born==0.04, "particle buffer drops oldest beyond eight bursts")
+particles.expire(at:1); check(particles.bursts.isEmpty, "expired bursts release storage")
+particles.add(ParticleBurst(origin:.zero,born:1,kind:.stars,intensity:5),reducedMotion:true)
+check(particles.bursts.isEmpty, "reduce motion suppresses particles")
+let leftScreen=CGRect(x:-1200,y:-100,width:1200,height:800)
+let ball=FloatingLayout.ball(in:leftScreen,right:true,fraction:0.5)
+check(ball.size==CGSize(width:44,height:44) && ball.maxX == -12, "floating ball starts 12 points from right edge")
+let snap=FloatingLayout.snapped(CGRect(x:-1180,y:180,width:44,height:44),in:leftScreen)
+check(!snap.right && snap.frame.minX == -1188, "ball snaps to left edge")
+check(FloatingLayout.ball(in:leftScreen,right:snap.right,fraction:snap.fraction)==snap.frame, "normalized position restores on same display")
+let smallScreen=CGRect(x:0,y:0,width:640,height:480)
+for right in [false,true] {
+    for fraction in [0.0,0.5,1.0] {
+        let b=FloatingLayout.ball(in:smallScreen,right:right,fraction:fraction)
+        let panel=FloatingLayout.panel(beside:b,in:smallScreen)
+        check(smallScreen.insetBy(dx:12,dy:12).contains(panel) && panel.width==320, "panel remains visible at edge \(right) fraction \(fraction)")
+    }
+}
+check(!FloatingLayout.isDrag(from:.zero,to:CGPoint(x:3,y:0)) && FloatingLayout.isDrag(from:.zero,to:CGPoint(x:4,y:0)), "four-point drag threshold")
+var dismissal=OutsideClickGate()
+check(dismissal.down(button:0,dismissing:true) && dismissal.dragging(button:0), "outside click consumes press and drag")
+check(!dismissal.up(button:1) && dismissal.up(button:0) && !dismissal.dragging(button:0), "outside click consumes matching release only")
+check(!dismissal.down(button:0,dismissing:false), "next click can draw normally")
 print("\(count) checks passed")

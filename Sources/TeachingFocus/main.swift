@@ -14,6 +14,7 @@ final class Canvas: NSView {
     var live: Stroke?
     var lasers: [Stroke] = []
     var ripples: [(CGPoint, Double)] = []
+    var particles = ParticleBuffer()
     var spotlight = false
     var cursor = CGPoint.zero
     override var acceptsFirstResponder: Bool { true }
@@ -38,13 +39,14 @@ final class Canvas: NSView {
             }
         } else if owner.bool("halo", false) {
             let radius=owner.haloRadius
-            owner.haloColor.withAlphaComponent(0.3).setFill(); NSBezierPath(ovalIn: NSRect(x: cursor.x-radius,y:cursor.y-radius,width:radius*2,height:radius*2)).fill()
+            owner.haloColor.withAlphaComponent(owner.haloOpacity).setFill(); NSBezierPath(ovalIn: NSRect(x: cursor.x-radius,y:cursor.y-radius,width:radius*2,height:radius*2)).fill()
         }
         for (point, born) in ripples {
             let age = clockNow() - born; let r = 12 + age * 65
             NSColor.systemCyan.withAlphaComponent(max(0, 1-age/0.6)).setStroke()
             let path = NSBezierPath(ovalIn: NSRect(x:point.x-r,y:point.y-r,width:r*2,height:r*2)); path.lineWidth=3; path.stroke()
         }
+        drawParticles(particles,color:owner.borderColor,at:clockNow())
         if owner.hold.start != nil {
             let p = owner.hold.progress(clockNow()); let center = CGPoint(x: bounds.midX, y: 75)
             NSColor.black.withAlphaComponent(0.8).setFill(); NSBezierPath(roundedRect: NSRect(x: center.x-170,y:25,width:340,height:100), xRadius:16,yRadius:16).fill()
@@ -69,9 +71,13 @@ final class Canvas: NSView {
         path.stroke()
     }
     override func mouseDown(with event: NSEvent) {
-        guard snapshot != nil, let owner else { return }
+        guard let owner else { return }
+        if owner.dismissFloatingPanel() { return }
+        guard snapshot != nil else { return }
         live=Stroke(points:[convert(event.locationInWindow,from:nil)],color:palette[owner.colorIndex],width:owner.number("penWidth",4),tool:owner.tool,born:clockNow()); needsDisplay=true
     }
+    override func rightMouseDown(with event:NSEvent) { owner?.dismissFloatingPanel() }
+    override func otherMouseDown(with event:NSEvent) { owner?.dismissFloatingPanel() }
     override func mouseDragged(with event:NSEvent) { live?.points.append(convert(event.locationInWindow,from:nil)); needsDisplay=true }
     override func mouseUp(with event:NSEvent) {
         if var stroke=live { stroke.points.append(convert(event.locationInWindow,from:nil)); stroke.born=clockNow(); if stroke.tool==5 { lasers.append(stroke) } else { history.add(stroke) } }; live=nil; needsDisplay=true
@@ -124,7 +130,20 @@ final class Controller: NSObject, NSApplicationDelegate {
     var testMode = false
     var status: NSStatusItem!
     var windows: [Overlay]=[]
-    var toolbar:NSPanel?
+    var floatingControls:FloatingControls?
+    var outsideMouse=OutsideClickGate()
+    var localEscapeMonitor:Any?
+    var haloOpacity:Double { min(1,max(0,number("haloOpacity",0.3))) }
+    var animationSeconds:Double { min(1,max(0.1,number("animationSeconds",0.25))) }
+    var particleKind:ParticleKind { ParticleKind(rawValue:Int(min(2,max(0,number("particleKind",0))))) ?? .dots }
+    var particleIntensity:Int { Int(min(5,max(1,number("particleIntensity",2)))) }
+    var reduceMotion:Bool { reduceMotionOverride ?? NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+    var reduceMotionOverride:Bool?
+    var haloOpacityLabel:NSTextField?
+    var animationTimeLabel:NSTextField?
+    var particleIntensityLabel:NSTextField?
+    var particlePreview:ParticlePreview?
+    var lastEntranceAnimating=false
     var settings:NSWindow?
     var settingsScroll:NSScrollView?
     var settingsStack:NSStackView?
@@ -143,7 +162,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     var spot=false
     var spotlightEntrance = SpotlightEntrance()
     var spotlightAppearance: (scale: Double, opacity: Double, animating: Bool) {
-        spotlightEntrance.sample(clockNow(), reducedMotion: !bool("spotAnimation", true) || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion)
+        spotlightEntrance.sample(clockNow(), reducedMotion: !bool("spotAnimation", true) || reduceMotion)
     }
     var tool=0
     var colorIndex=0
@@ -170,7 +189,7 @@ final class Controller: NSObject, NSApplicationDelegate {
     var permissionCheckTime=0.0
     var borderColor:NSColor { color("borderColorRGB",fallback:paletteColor(preferences.integer(forKey:"borderColor"))) }
     func paletteColor(_ index:Int)->NSColor { [.systemCyan,.systemYellow,.systemGreen,.systemPink,.white][max(0,min(4,index))] }
-    func number(_ key:String,_ fallback:Double)->Double { preferences.object(forKey:key) as? Double ?? fallback }
+    func number(_ key:String,_ fallback:Double)->Double { let value=preferences.object(forKey:key) as? Double ?? fallback; return value.isFinite ? value:fallback }
     func bool(_ key:String,_ fallback:Bool)->Bool { preferences.object(forKey:key) as? Bool ?? fallback }
     func applicationDidFinishLaunching(_ notification:Notification) {
         if CommandLine.arguments.contains("--diagnostics") {
@@ -195,6 +214,12 @@ final class Controller: NSObject, NSApplicationDelegate {
         }
         registerSavedShortcuts()
         rebuild(); installTap()
+        localEscapeMonitor=NSEvent.addLocalMonitorForEvents(matching:[.keyDown,.keyUp]) { [weak self] event in
+            guard let self,event.keyCode==53,self.recordingAction==nil,!self.paused else { return event }
+            // Global hooks consume these events first when authorized. This also provides a local fallback.
+            let cg=event.cgEvent ?? CGEvent(keyboardEventSource:nil,virtualKey:53,keyDown:event.type == .keyDown)!
+            return self.handle(event.type == .keyDown ? .keyDown:.keyUp,cg) ? nil:event
+        }
         timer=Timer(timeInterval:1.0/60,repeats:true){[weak self] _ in self?.tick()}; RunLoop.main.add(timer!,forMode:.common)
         NotificationCenter.default.addObserver(self,selector:#selector(screenChanged),name:NSApplication.didChangeScreenParametersNotification,object:nil)
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(screenChanged),name:NSWorkspace.willSleepNotification,object:nil)
@@ -212,7 +237,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         }
     }
     @objc func screenChanged() { end(); rebuild() }
-    @objc func toggleSpot() { guard !paused && recordingAction == nil else { return }; spot.toggle(); if spot { spotlightEntrance.begin(clockNow()) } else { spotlightEntrance.reset(); if !active { hold.cancel() } } }
+    @objc func toggleSpot() { guard !paused && recordingAction == nil else { return }; spot.toggle(); if spot { spotlightEntrance.begin(clockNow(),duration:animationSeconds) } else { spotlightEntrance.reset(); if !active { hold.cancel() } } }
     @objc func freeze() {
         guard !paused && recordingAction == nil && frozen==nil && !capturing else { return }
         guard CGPreflightScreenCaptureAccess() else { CGRequestScreenCaptureAccess(); permissions(); return }
@@ -220,20 +245,21 @@ final class Controller: NSObject, NSApplicationDelegate {
         previousApp=NSWorkspace.shared.frontmostApplication
         if previousApp?.processIdentifier==ProcessInfo.processInfo.processIdentifier { previousApp=nil }
         settings?.orderOut(nil)
+        for window in windows { if let canvas=window.contentView as? Canvas { canvas.particles.clear(); canvas.ripples=[]; canvas.needsDisplay=true } }
         capturing=true; generation += 1; let token=generation; let capture=Capture(); self.capture=capture
         capture.start(displayID:id) { [weak self,weak window,weak canvas] result in
             guard let self,self.generation==token else { return }; self.capturing=false; self.capture=nil
             switch result {
             case .success(let image):
-                guard let window,let canvas else { return }; canvas.snapshot=image; canvas.history.clear(); window.ignoresMouseEvents=false; NSApp.activate(ignoringOtherApps:true); window.makeKeyAndOrderFront(nil); window.makeFirstResponder(canvas); self.showToolbar(screen:screen)
+                guard let window,let canvas else { return }; canvas.snapshot=image; canvas.history.clear(); window.ignoresMouseEvents=false; NSApp.activate(ignoringOtherApps:true); window.makeKeyAndOrderFront(nil); window.makeFirstResponder(canvas); self.showFloatingTools(screen:screen)
             case .failure(let error): self.alert("無法凍結畫面",error.localizedDescription+"\n請到系統設定檢查螢幕錄製權限，再重新啟動工具。")
             }
         }
     }
     @objc func end() {
         generation += 1; capturing=false; capture?.finish(.failure(NSError(domain:"取消",code:0))); capture=nil
-        spot=false; spotlightEntrance.reset(); hold.cancel(); toolbar?.close(); toolbar=nil; colorPicker=nil
-        for window in windows { if let canvas=window.contentView as? Canvas { canvas.snapshot=nil; canvas.history.clear(); canvas.live=nil; canvas.lasers=[]; canvas.needsDisplay=true }; window.ignoresMouseEvents=true }
+        spot=false; spotlightEntrance.reset(); hold.cancel(); floatingControls?.close(); floatingControls=nil; colorPicker=nil; particlePreview?.clear(); effectPreviews.forEach { $0.stopAnimation() }
+        for window in windows { if let canvas=window.contentView as? Canvas { canvas.snapshot=nil; canvas.history.clear(); canvas.live=nil; canvas.lasers=[]; canvas.ripples=[]; canvas.particles.clear(); canvas.needsDisplay=true }; window.ignoresMouseEvents=true }
         previousApp?.activate(options:[]); previousApp=nil
     }
     @objc func quit() { recorderPanel?.close(); end(); shortcutRouter?.unregister(); NSApp.terminate(nil) }
@@ -271,23 +297,27 @@ final class Controller: NSObject, NSApplicationDelegate {
         if !active { hold.cancel() }
         if hold.tick(clockNow()) { end() }
         let mouse=NSEvent.mouseLocation
+        let entranceAnimating=spot && spotlightAppearance.animating
         for window in windows {
             guard let canvas=window.contentView as? Canvas else { continue }
+            let hadParticles = !canvas.particles.bursts.isEmpty
+            if reduceMotion { canvas.particles.clear() }
             let point=localPoint(mouse,frame:window.frame)
             let lit=spot && window.frame.contains(mouse)
-            let moving=(point != canvas.cursor) && (lit || bool("halo",false))
-            let animate = !canvas.lasers.isEmpty || !canvas.ripples.isEmpty || hold.start != nil || (lit && spotlightAppearance.animating)
+            let moving=(point != canvas.cursor) && (lit || (bool("halo",false) && haloOpacity>0))
+            let animate = !canvas.lasers.isEmpty || !canvas.ripples.isEmpty || hold.start != nil || hadParticles || (lit && (entranceAnimating || lastEntranceAnimating))
             if moving || lit != canvas.spotlight || animate { canvas.needsDisplay=true }
-            let visible=canvas.snapshot != nil || lit || (bool("halo",false) && window.frame.contains(mouse)) || !canvas.ripples.isEmpty || hold.start != nil
+            let visible=canvas.snapshot != nil || lit || (bool("halo",false) && haloOpacity>0 && window.frame.contains(mouse)) || !canvas.ripples.isEmpty || !canvas.particles.bursts.isEmpty || hold.start != nil || floatingControls?.expanded == true
             if visible && !window.isVisible { window.orderFrontRegardless(); canvas.needsDisplay=true }
             if !visible && window.isVisible { window.orderOut(nil) }
             canvas.cursor=point; canvas.spotlight=lit
-            canvas.lasers.removeAll{clockNow()-$0.born>1}; canvas.ripples.removeAll{clockNow()-$0.1>0.6}
+            canvas.lasers.removeAll{clockNow()-$0.born>1}; canvas.ripples.removeAll{clockNow()-$0.1>0.6}; canvas.particles.expire(at:clockNow())
         }
+        lastEntranceAnimating=entranceAnimating
     }
     func installTap() {
         guard !testMode && !paused && tap==nil else { return }
-        let types:[CGEventType]=[.flagsChanged,.keyDown,.keyUp,.leftMouseDown,.rightMouseDown]
+        let types:[CGEventType]=[.flagsChanged,.keyDown,.keyUp,.leftMouseDown,.rightMouseDown,.otherMouseDown,.leftMouseUp,.rightMouseUp,.otherMouseUp,.leftMouseDragged,.rightMouseDragged,.otherMouseDragged]
         let mask=types.reduce(CGEventMask(0)){$0 | (CGEventMask(1)<<$1.rawValue)}
         tap=CGEvent.tapCreate(tap:.cgSessionEventTap,place:.headInsertEventTap,options:.defaultTap,eventsOfInterest:mask,callback:{ _,type,event,info in
             guard let info else { return Unmanaged.passUnretained(event) }
@@ -298,7 +328,13 @@ final class Controller: NSObject, NSApplicationDelegate {
         if let tap { tapSource=CFMachPortCreateRunLoopSource(kCFAllocatorDefault,tap,0); CFRunLoopAddSource(CFRunLoopGetMain(),tapSource,.commonModes); CGEvent.tapEnable(tap:tap,enable:true) }
     }
     func handle(_ type:CGEventType,_ event:CGEvent)->Bool {
+        let button = (type == .leftMouseDown || type == .leftMouseUp || type == .leftMouseDragged) ? 0 : ((type == .rightMouseDown || type == .rightMouseUp || type == .rightMouseDragged) ? 1 : 2)
+        if [.leftMouseUp,.rightMouseUp,.otherMouseUp].contains(type), outsideMouse.up(button:button) { return true }
+        if [.leftMouseDragged,.rightMouseDragged,.otherMouseDragged].contains(type), outsideMouse.dragging(button:button) { return true }
         guard !paused && recordingAction == nil else { return false }
+        if [.leftMouseDown,.rightMouseDown,.otherMouseDown].contains(type), floatingControls?.expanded == true, floatingControls?.contains(NSEvent.mouseLocation) == false {
+            _ = outsideMouse.down(button:button,dismissing:true); dismissFloatingPanel(); return true
+        }
         let key=event.getIntegerValueField(.keyboardEventKeycode); let flags=event.flags; let now=clockNow()
         if type == .flagsChanged {
             let clean=flags.intersection([.maskShift,.maskAlternate,.maskCommand]).isEmpty
@@ -306,7 +342,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         }
         if type == .keyDown {
             _ = doubleTap.update(pressed:flags.contains(.maskControl),clean:false,time:now)
-            if key==53 && escape.keyDown(lessonActive: active) { if active { hold.press(now, duration: holdDuration) }; return true }
+            if key==53 && escape.keyDown(lessonActive: active) { dismissFloatingPanel(); if active { hold.press(now, duration: holdDuration) }; return true }
             let mods=flags.intersection([.maskControl,.maskAlternate,.maskCommand,.maskShift])
             if let canvas=frozen {
                 if key==6 && flags.contains(.maskCommand) { if flags.contains(.maskShift) { canvas.history.redo() } else { canvas.history.undo() }; canvas.needsDisplay=true; return true }
@@ -314,21 +350,22 @@ final class Controller: NSObject, NSApplicationDelegate {
             }
         }
         if type == .keyUp && key==53 { let consumed = escape.keyUp(); hold.cancel(); windows.forEach { $0.contentView?.needsDisplay=true }; return consumed }
-        if (type == .leftMouseDown || type == .rightMouseDown) && bool("ripples",true) && frozen==nil { let mouse=NSEvent.mouseLocation; for window in windows where window.frame.contains(mouse) { (window.contentView as? Canvas)?.ripples.append((localPoint(mouse,frame:window.frame),now)) } }
+        if (type == .leftMouseDown || type == .rightMouseDown) && frozen==nil && !capturing {
+            let mouse=NSEvent.mouseLocation
+            if !ownControlContains(mouse) {
+                for window in windows where window.frame.contains(mouse) {
+                    guard let canvas=window.contentView as? Canvas else { continue }
+                    let point=localPoint(mouse,frame:window.frame)
+                    if bool("ripples",true) { canvas.ripples.append((point,now)) }
+                    if bool("particles",false) { emitParticles(on:canvas,point:point,time:now) }
+                }
+            }
+        }
         return false
     }
     var colorPicker:NSPopUpButton?
-    func updateToolbarSelection() { colorPicker?.selectItem(at:colorIndex) }
+    func updateToolbarSelection() { colorPicker?.selectItem(at:colorIndex); floatingControls?.sync() }
     func button(_ title:String,_ action:Selector)->NSButton { let b=NSButton(title:title,target:self,action:action); b.bezelStyle = .rounded; return b }
-    func showToolbar(screen:NSScreen) {
-        let panel=NSPanel(contentRect:NSRect(x:screen.frame.minX+20,y:screen.frame.maxY-125,width:710,height:72),styleMask:[.titled],backing:.buffered,defer:false); panel.title="畫面已凍結 · 長按 Esc \(holdDurationText) 秒結束"; panel.level = .init(rawValue:Int(CGWindowLevelForKey(.screenSaverWindow))+1); panel.collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary]; panel.isReleasedWhenClosed=false
-        let stack=NSStackView(); stack.orientation = .horizontal; stack.spacing=6; stack.translatesAutoresizingMaskIntoConstraints=false
-        let tools=NSPopUpButton(); tools.addItems(withTitles:["畫筆","直線","箭頭","矩形","橢圓","雷射筆"]); tools.selectItem(at:tool); tools.target=self; tools.action=#selector(selectTool(_:)); stack.addArrangedSubview(tools)
-        let colors=NSPopUpButton(); colors.addItems(withTitles:["🔴 紅 1","🔵 藍 2","🟢 綠 3","⚫ 黑 4","⚪ 白 5"]); colors.selectItem(at:colorIndex); colors.target=self; colors.action=#selector(selectColor(_:)); colorPicker=colors; stack.addArrangedSubview(colors)
-        let width=NSPopUpButton(); width.addItems(withTitles:["細 2","中 4","粗 8","特粗 12"]); width.selectItem(at:[2.0,4,8,12].firstIndex(of:number("penWidth",4)) ?? 1); width.target=self; width.action=#selector(selectWidth(_:)); stack.addArrangedSubview(width)
-        for (title,action) in [("↶",#selector(undo)),("↷",#selector(redo)),("清除全部",#selector(clear)),("聚光燈",#selector(toggleSpot)),("結束講解",#selector(end))] { stack.addArrangedSubview(button(title,action)) }
-        panel.contentView!.addSubview(stack); NSLayoutConstraint.activate([stack.centerXAnchor.constraint(equalTo:panel.contentView!.centerXAnchor),stack.centerYAnchor.constraint(equalTo:panel.contentView!.centerYAnchor)]); toolbar=panel; panel.makeKeyAndOrderFront(nil)
-    }
     @objc func selectTool(_ sender:NSPopUpButton) { tool=sender.indexOfSelectedItem }
     @objc func selectColor(_ sender:NSPopUpButton) { colorIndex=sender.indexOfSelectedItem }
     @objc func selectWidth(_ sender:NSPopUpButton) { preferences.set([2.0,4,8,12][sender.indexOfSelectedItem],forKey:"penWidth") }
@@ -353,7 +390,13 @@ final class Controller: NSObject, NSApplicationDelegate {
         for index in [0,2] {
             toggles[index].widthAnchor.constraint(equalToConstant:210).isActive=true
             let row=NSStackView(views:[toggles[index],toggles[index+1]]); row.spacing=12; stack.addArrangedSubview(row)
+            if index == 0 {
+                let label=settingsLabel(String(format:"動畫時間：%.2f 秒",animationSeconds)); animationTimeLabel=label
+                let slider=NSSlider(value:animationSeconds,minValue:0.1,maxValue:1,target:self,action:#selector(slide(_:))); slider.identifier=NSUserInterfaceItemIdentifier("animationSeconds"); slider.numberOfTickMarks=19; slider.allowsTickMarkValuesOnly=true; slider.widthAnchor.constraint(equalToConstant:180).isActive=true
+                let row=NSStackView(views:[label,slider,button("預覽",#selector(previewEntrance))]); row.spacing=8; stack.addArrangedSubview(row)
+            }
         }
+        stack.addArrangedSubview(particleControls())
         stack.addArrangedSubview(toggles[4])
         stack.addArrangedSubview(colorControls(title:"外框顏色",key:"borderColorRGB",selected:borderColor,halo:false))
         stack.addArrangedSubview(colorControls(title:"光圈顏色",key:"haloColorRGB",selected:haloColor,halo:true))
@@ -375,7 +418,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         let actions=NSStackView(views:[button("試用聚光燈",#selector(toggleSpot)),button("凍結並畫圖",#selector(freeze)),button("權限說明",#selector(permissions)),button("還原預設設定…",#selector(confirmResetSettings))])
         actions.identifier=NSUserInterfaceItemIdentifier("settingsActions"); actions.distribution = .fillEqually; actions.spacing=8
         stack.addArrangedSubview(actions); actions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
-        let instructions = NSTextField(wrappingLabelWithString: "設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或波紋時不攔截 Esc。"); instructions.font = .systemFont(ofSize:11); instructions.textColor = .secondaryLabelColor; instructionsLabel=instructions; stack.addArrangedSubview(instructions); instructions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
+        let instructions = NSTextField(wrappingLabelWithString: "設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或點擊效果時不攔截 Esc。"); instructions.font = .systemFont(ofSize:11); instructions.textColor = .secondaryLabelColor; instructionsLabel=instructions; stack.addArrangedSubview(instructions); instructions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
         refreshStatus()
         let scroll=NSScrollView(frame:window.contentView!.bounds); scroll.autoresizingMask=[.width,.height]; scroll.hasVerticalScroller=true; scroll.autohidesScrollers=true; scroll.drawsBackground=false
         let document=FlippedDocument(frame:NSRect(x:0,y:0,width:scroll.contentSize.width,height:1)); document.autoresizingMask=[.width]; document.addSubview(stack); scroll.documentView=document
@@ -429,6 +472,21 @@ final class Controller: NSObject, NSApplicationDelegate {
         verify(abs((rep.colorAt(x:20,y:20)?.alphaComponent ?? 0)-0.6)<0.02,"spotlight dim 60 percent")
         verify((rep.colorAt(x:520,y:300)?.alphaComponent ?? 0)>0.2,"fluorescent border rendered")
         canvas.spotlight=false
+        preferences.set(true,forKey:"halo")
+        for opacity in [0.0,0.3,1.0] {
+            preferences.set(opacity,forKey:"haloOpacity"); render()
+            verify(abs((rep.colorAt(x:400,y:300)?.alphaComponent ?? -1)-opacity)<0.02,"halo renders configured opacity \(opacity)")
+        }
+        preferences.set(false,forKey:"halo")
+        for kind in ParticleKind.allCases {
+            canvas.particles.clear(); canvas.particles.add(ParticleBurst(origin:CGPoint(x:400,y:300),born:clockNow()-0.18,kind:kind,intensity:2))
+            render()
+            var pixels=0
+            for y in stride(from:220,to:380,by:2) { for x in stride(from:320,to:480,by:2) { if (rep.colorAt(x:x,y:y)?.alphaComponent ?? 0)>0.01 { pixels += 1 } } }
+            verify(pixels>0,"particle style \(kind) produces visible pixels")
+        }
+        canvas.particles.expire(at:clockNow()+1); render()
+        verify(canvas.particles.bursts.isEmpty,"particle drawing stops after lifetime")
         for _ in 0..<100 {
             canvas.snapshot=rep.cgImage
             canvas.history.add(Stroke(points:[CGPoint(x:100,y:100)],color:.red,width:4,tool:0,born:clockNow()))
@@ -444,9 +502,14 @@ final class Controller: NSObject, NSApplicationDelegate {
         preferences.set(key == "haloRadius" ? sender.doubleValue.rounded() : sender.doubleValue,forKey:key)
         if key == "holdSeconds" {
             holdLabel?.stringValue="長按 Esc：\(holdDurationText) 秒"
-            instructionsLabel?.stringValue="設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或波紋時不攔截 Esc。"
-            toolbar?.title="畫面已凍結 · 長按 Esc \(holdDurationText) 秒結束"
+            instructionsLabel?.stringValue="設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或點擊效果時不攔截 Esc。"
+            floatingControls?.sync()
         }
+        if key == "animationSeconds" { preferences.set((sender.doubleValue/0.05).rounded()*0.05,forKey:key) }
+        haloOpacityLabel?.stringValue="不透明度 \(Int((haloOpacity*100).rounded()))%"
+        animationTimeLabel?.stringValue=String(format:"動畫時間：%.2f 秒",animationSeconds)
+        particleIntensityLabel?.stringValue="強度 \(particleIntensity)"
+        if key == "particleIntensity" { particlePreview?.play() }
         haloSizeLabel?.stringValue="光圈半徑：\(Int(haloRadius)) 點"
         effectPreviews.forEach { $0.needsDisplay=true }
         windows.forEach { $0.contentView?.needsDisplay=true }

@@ -42,12 +42,13 @@ public func localPoint(_ point: CGPoint, frame: CGRect) -> CGPoint { CGPoint(x: 
 
 public struct SpotlightEntrance {
     private var started: Double?
+    private var duration = 0.25
     public init() {}
-    public mutating func begin(_ time: Double) { started = time }
+    public mutating func begin(_ time: Double, duration: Double = 0.25) { started = time; self.duration=duration.isFinite ? min(1,max(0.1,duration)) : 0.25 }
     public mutating func reset() { started = nil }
     public func sample(_ time: Double, reducedMotion: Bool = false) -> (scale: Double, opacity: Double, animating: Bool) {
         guard !reducedMotion, let started else { return (1, 1, false) }
-        let progress = min(1, max(0, (time - started) / 0.25))
+        let progress = min(1, max(0, (time - started) / duration))
         let eased = 1 - pow(1 - progress, 3)
         return (1 + 0.65 * (1 - eased), eased, progress < 1)
     }
