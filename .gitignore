@@ -3,3 +3,7 @@
 evidence/
 *_REPORT.md
 Assets/ICON_PROMPT.md
+
+windows/**/bin/
+windows/**/obj/
+windows/dist/

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF><UseWindowsForms>true</UseWindowsForms><EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- WPF owns startup and the PerMonitorV2 manifest; WinForms is used only for tray/color dialog. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <ImplicitUsings>disable</ImplicitUsings><Nullable>enable</Nullable>
+    <AssemblyName>TeachingFocus</AssemblyName><ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>../Assets/AppIcon.ico</ApplicationIcon><Version>1.1.0</Version>
+    <PublishSingleFile>true</PublishSingleFile><SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract><PublishTrimmed>false</PublishTrimmed>
+    <DebugType>none</DebugType><DebugSymbols>false</DebugSymbols><EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../TeachingFocus.Core/TeachingFocus.Core.csproj" />
+    <Resource Include="../Assets/AppIcon.ico" Link="AppIcon.ico" />
+  </ItemGroup>
+</Project>

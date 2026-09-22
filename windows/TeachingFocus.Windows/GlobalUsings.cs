@@ -1,0 +1,17 @@
+global using System;
+global using System.Collections.Generic;
+global using System.Linq;
+global using System.IO;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using System.Diagnostics;
+global using System.Windows;
+global using System.Windows.Controls;
+global using System.Windows.Input;
+global using System.Windows.Media;
+global using System.Windows.Threading;
+global using TeachingFocus.Core;
+global using Point = System.Windows.Point;
+global using Color = System.Windows.Media.Color;
+global using Application = System.Windows.Application;
+global using Button = System.Windows.Controls.Button;

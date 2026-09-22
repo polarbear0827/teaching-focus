@@ -2,7 +2,12 @@
 
 ![App icon](Assets/AppIcon.png)
 
-Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Windows 不在本次交付範圍。
+Mac 與 Windows 教學畫筆、聚光燈工具。Mac 目標為 macOS 13+、Apple Silicon；Windows 提供 x64 免安裝預覽版。
+
+- [Mac PKG](https://github.com/polarbear0827/teaching-focus/releases/tag/v1.0.0-beta.7)
+- [Windows x64 免安裝版](https://github.com/polarbear0827/teaching-focus/releases/tag/v1.1.0-windows-beta.1) · [Windows 使用與建置說明](windows/README.md)
+
+Windows 尚待實機驗收；以下操作說明以 Mac 為主。
 
 ## 啟動
 
