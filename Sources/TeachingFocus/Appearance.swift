@@ -65,12 +65,15 @@ extension Controller {
         effectPreviews.forEach { $0.needsDisplay=true }
         windows.forEach { $0.contentView?.needsDisplay=true }
     }
+    func settingsLabel(_ text:String) -> NSTextField {
+        let label=NSTextField(labelWithString:text); label.widthAnchor.constraint(equalToConstant:130).isActive=true; return label
+    }
     func colorControls(title:String,key:String,selected:NSColor,halo:Bool) -> NSView {
         let well=PreviewColorWell(frame:NSRect(x:0,y:0,width:48,height:28)); well.color=selected; well.identifier=NSUserInterfaceItemIdentifier(key); well.target=self; well.action=#selector(colorChanged(_:)); well.setAccessibilityLabel(title)
         well.widthAnchor.constraint(equalToConstant:48).isActive=true; well.heightAnchor.constraint(equalToConstant:28).isActive=true
         let preview=EffectPreview(owner:self,halo:halo); effectPreviews.append(preview)
-        preview.widthAnchor.constraint(equalToConstant:240).isActive=true; preview.heightAnchor.constraint(equalToConstant:76).isActive=true
-        let row=NSStackView(views:[NSTextField(labelWithString:title),well,preview]); row.spacing=12
+        preview.widthAnchor.constraint(equalToConstant:240).isActive=true; preview.heightAnchor.constraint(equalToConstant:64).isActive=true
+        let row=NSStackView(views:[settingsLabel(title),well,preview]); row.spacing=12
         return row
     }
     func resizeSettingsDocument() {

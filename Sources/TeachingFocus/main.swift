@@ -343,36 +343,46 @@ final class Controller: NSObject, NSApplicationDelegate {
     @objc func showSettings() {
         if let settings { settings.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true); return }
         let window=NSWindow(contentRect:NSRect(x:0,y:0,width:540,height:max(420,min(760,(NSScreen.main?.visibleFrame.height ?? 820)-60))),styleMask:[.titled,.closable],backing:.buffered,defer:false); window.title="教學聚光燈設定"; window.level = .init(rawValue:Int(CGWindowLevelForKey(.screenSaverWindow))+2); window.isReleasedWhenClosed=false
-        let stack=NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing=14; stack.translatesAutoresizingMaskIntoConstraints=false
+        let stack=NSStackView(); stack.orientation = .vertical; stack.alignment = .leading; stack.spacing=12; stack.translatesAutoresizingMaskIntoConstraints=false
         for (label,key,min,max,value) in [("聚光燈半徑","radius",40.0,400.0,120.0),("背景遮暗","dim",0.1,0.9,0.6),("外框粗細","borderWidth",1.0,10.0,3.0),("發光強度","glow",0.0,30.0,12.0)] {
             let slider=NSSlider(value:number(key,value),minValue:min,maxValue:max,target:self,action:#selector(slide(_:))); slider.identifier=NSUserInterfaceItemIdentifier(key); slider.widthAnchor.constraint(equalToConstant:260).isActive=true
-            stack.addArrangedSubview(NSStackView(views:[NSTextField(labelWithString:label),slider]))
+            stack.addArrangedSubview(NSStackView(views:[settingsLabel(label),slider]))
         }
-        for (label,key,fallback) in [("螢光外框","border",true),("聚光燈收縮動畫","spotAnimation",true),("游標光圈","halo",false),("點擊波紋","ripples",true),("停用雙按 Control（改用快捷鍵）","disableDoubleControl",false)] { let b=NSButton(checkboxWithTitle:label,target:self,action:#selector(changeBool(_:))); b.identifier=NSUserInterfaceItemIdentifier(key); b.state=bool(key,fallback) ? .on:.off; stack.addArrangedSubview(b) }
+        var toggles:[NSButton]=[]
+        for (label,key,fallback) in [("螢光外框","border",true),("聚光燈收縮動畫","spotAnimation",true),("游標光圈","halo",false),("點擊波紋","ripples",true),("停用雙按 Control（改用快捷鍵）","disableDoubleControl",false)] { let b=NSButton(checkboxWithTitle:label,target:self,action:#selector(changeBool(_:))); b.identifier=NSUserInterfaceItemIdentifier(key); b.state=bool(key,fallback) ? .on:.off; toggles.append(b) }
+        for index in [0,2] {
+            toggles[index].widthAnchor.constraint(equalToConstant:210).isActive=true
+            let row=NSStackView(views:[toggles[index],toggles[index+1]]); row.spacing=12; stack.addArrangedSubview(row)
+        }
+        stack.addArrangedSubview(toggles[4])
         stack.addArrangedSubview(colorControls(title:"外框顏色",key:"borderColorRGB",selected:borderColor,halo:false))
         stack.addArrangedSubview(colorControls(title:"光圈顏色",key:"haloColorRGB",selected:haloColor,halo:true))
-        let haloSize=NSTextField(labelWithString:"光圈半徑：\(Int(haloRadius)) 點"); haloSizeLabel=haloSize
-        let haloSlider=NSSlider(value:haloRadius,minValue:6,maxValue:80,target:self,action:#selector(slide(_:))); haloSlider.identifier=NSUserInterfaceItemIdentifier("haloRadius"); haloSlider.widthAnchor.constraint(equalToConstant:240).isActive=true
+        let haloSize=settingsLabel("光圈半徑：\(Int(haloRadius)) 點"); haloSizeLabel=haloSize
+        let haloSlider=NSSlider(value:haloRadius,minValue:6,maxValue:80,target:self,action:#selector(slide(_:))); haloSlider.identifier=NSUserInterfaceItemIdentifier("haloRadius"); haloSlider.widthAnchor.constraint(equalToConstant:260).isActive=true
         stack.addArrangedSubview(NSStackView(views:[haloSize,haloSlider]))
         for (label,key) in [("凍結快捷鍵","freezeKey"),("聚光燈快捷鍵","spotKey")] {
             let value = NSTextField(labelWithString: shortcutLabel(binding(key))); value.widthAnchor.constraint(equalToConstant: 170).isActive = true; shortcutLabels[key] = value
             let record = button("錄製…", #selector(startRecording(_:))); record.identifier = NSUserInterfaceItemIdentifier(key)
-            stack.addArrangedSubview(NSStackView(views: [NSTextField(labelWithString:label), value, record]))
+            stack.addArrangedSubview(NSStackView(views: [settingsLabel(label), value, record]))
         }
-        let durationLabel = NSTextField(labelWithString: "長按 Esc：\(holdDurationText) 秒"); holdLabel = durationLabel
-        let duration = NSSlider(value:holdDuration,minValue:0.5,maxValue:10,target:self,action:#selector(slide(_:))); duration.identifier = NSUserInterfaceItemIdentifier("holdSeconds"); duration.numberOfTickMarks=20; duration.allowsTickMarkValuesOnly=true; duration.widthAnchor.constraint(equalToConstant:240).isActive=true
+        let durationLabel = settingsLabel("長按 Esc：\(holdDurationText) 秒"); holdLabel = durationLabel
+        let duration = NSSlider(value:holdDuration,minValue:0.5,maxValue:10,target:self,action:#selector(slide(_:))); duration.identifier = NSUserInterfaceItemIdentifier("holdSeconds"); duration.numberOfTickMarks=20; duration.allowsTickMarkValuesOnly=true; duration.widthAnchor.constraint(equalToConstant:260).isActive=true
         stack.addArrangedSubview(NSStackView(views:[durationLabel,duration]))
         let pause = button(paused ? "繼續使用" : "暫停", #selector(togglePause)); pauseButton = pause
-        stack.addArrangedSubview(pause)
-        let health = NSTextField(wrappingLabelWithString: ""); inputStatusLabel=health; stack.addArrangedSubview(health); health.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
-        stack.addArrangedSubview(NSStackView(views:[button("試用聚光燈",#selector(toggleSpot)),button("凍結並畫圖",#selector(freeze)),button("權限說明",#selector(permissions))]))
-        stack.addArrangedSubview(button("還原預設設定…", #selector(confirmResetSettings)))
-        let instructions = NSTextField(wrappingLabelWithString: "設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或波紋時不攔截 Esc。"); instructionsLabel=instructions; stack.addArrangedSubview(instructions); instructions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
+        pause.widthAnchor.constraint(equalToConstant:78).isActive=true
+        let health=NSTextField(wrappingLabelWithString: ""); health.font = .systemFont(ofSize:11); health.textColor = .secondaryLabelColor; inputStatusLabel=health
+        let stateRow=NSStackView(views:[pause,health]); stateRow.spacing=12; stack.addArrangedSubview(stateRow); health.widthAnchor.constraint(equalTo:stack.widthAnchor,constant:-90).isActive=true
+        let actions=NSStackView(views:[button("試用聚光燈",#selector(toggleSpot)),button("凍結並畫圖",#selector(freeze)),button("權限說明",#selector(permissions)),button("還原預設設定…",#selector(confirmResetSettings))])
+        actions.identifier=NSUserInterfaceItemIdentifier("settingsActions"); actions.distribution = .fillEqually; actions.spacing=8
+        stack.addArrangedSubview(actions); actions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
+        let instructions = NSTextField(wrappingLabelWithString: "設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或波紋時不攔截 Esc。"); instructions.font = .systemFont(ofSize:11); instructions.textColor = .secondaryLabelColor; instructionsLabel=instructions; stack.addArrangedSubview(instructions); instructions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
         refreshStatus()
         let scroll=NSScrollView(frame:window.contentView!.bounds); scroll.autoresizingMask=[.width,.height]; scroll.hasVerticalScroller=true; scroll.autohidesScrollers=true; scroll.drawsBackground=false
         let document=FlippedDocument(frame:NSRect(x:0,y:0,width:scroll.contentSize.width,height:1)); document.autoresizingMask=[.width]; document.addSubview(stack); scroll.documentView=document
         NSLayoutConstraint.activate([stack.leadingAnchor.constraint(equalTo:document.leadingAnchor,constant:24),stack.trailingAnchor.constraint(equalTo:document.trailingAnchor,constant:-24),stack.topAnchor.constraint(equalTo:document.topAnchor,constant:24)])
         window.contentView!.addSubview(scroll); settings=window; settingsScroll=scroll; settingsStack=stack; document.layoutSubtreeIfNeeded(); resizeSettingsDocument()
+        window.setContentSize(NSSize(width:540,height:min(max(420,(NSScreen.main?.visibleFrame.height ?? 820)-60),stack.fittingSize.height+48)))
+        resizeSettingsDocument()
         if !testMode { window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps:true) }
     }
     func captureChecks() {
