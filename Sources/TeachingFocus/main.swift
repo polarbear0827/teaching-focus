@@ -366,6 +366,7 @@ final class Controller: NSObject, NSApplicationDelegate {
         stack.addArrangedSubview(pause)
         let health = NSTextField(wrappingLabelWithString: ""); inputStatusLabel=health; stack.addArrangedSubview(health); health.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
         stack.addArrangedSubview(NSStackView(views:[button("試用聚光燈",#selector(toggleSpot)),button("凍結並畫圖",#selector(freeze)),button("權限說明",#selector(permissions))]))
+        stack.addArrangedSubview(button("還原預設設定…", #selector(confirmResetSettings)))
         let instructions = NSTextField(wrappingLabelWithString: "設定立即儲存。長按 Esc \(holdDurationText) 秒結束講解；只開光圈或波紋時不攔截 Esc。"); instructionsLabel=instructions; stack.addArrangedSubview(instructions); instructions.widthAnchor.constraint(equalTo:stack.widthAnchor).isActive=true
         refreshStatus()
         let scroll=NSScrollView(frame:window.contentView!.bounds); scroll.autoresizingMask=[.width,.height]; scroll.hasVerticalScroller=true; scroll.autohidesScrollers=true; scroll.drawsBackground=false

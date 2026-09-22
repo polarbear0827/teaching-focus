@@ -53,12 +53,14 @@ Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Window
 
 Repository：<https://github.com/polarbear0827/teaching-focus>（公開）。
 
-下載：<https://github.com/polarbear0827/teaching-focus/releases>。下載 `TeachingFocus-v1.0.0-beta.4-arm64.pkg`，安裝精靈將程式放入 `/Applications/TeachingFocus.app`。本版不需要額外安裝背景服務，套件不包含安裝腳本；系統安裝精靈可能要求管理者授權。
+下載：<https://github.com/polarbear0827/teaching-focus/releases>。下載 `TeachingFocus-v1.0.0-beta.5-arm64.pkg`，安裝精靈將程式放入 `/Applications/TeachingFocus.app`。本版不需要額外安裝背景服務，套件不包含安裝腳本；系統安裝精靈可能要求管理者授權。
 
-目前為 `v1.0.0-beta.4` 預覽版。**PKG 本身未簽署；內含 app 只有 ad-hoc 本機簽章。尚未 Developer ID 簽署或 Apple 公證，app 的 Gatekeeper 評估為 rejected。**若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
+目前為 `v1.0.0-beta.5` 預覽版。**PKG 本身未簽署；內含 app 只有 ad-hoc 本機簽章。尚未 Developer ID 簽署或 Apple 公證，app 的 Gatekeeper 評估為 rejected。**若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
 
 本版已加入無文字游標角色與螢光聚光燈 icon。
 
 建立 PKG：先執行 `./scripts/build-app.sh`，再執行 `./scripts/build-pkg.sh`。可用環境變數 `TEACHINGFOCUS_APP_PATH` 指定 app 路徑、`TEACHINGFOCUS_PKG_PATH` 指定 PKG 輸出路徑。
 
 更新尚未正式簽署的版本後，macOS 可能需要重新綁定 `/Applications/TeachingFocus.app` 的輔助使用／螢幕錄製權限。組合快捷鍵由系統註冊；雙按 Control、Esc 攔截與點擊波紋仍需要輔助使用授權。
+
+設定頁提供「還原預設設定…」：確認後還原顏色、大小、效果開關、快捷鍵與 Esc 時間，並清除目前画布。保留暫停狀態與 macOS 系統權限。

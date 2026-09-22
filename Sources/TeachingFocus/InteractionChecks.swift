@@ -76,6 +76,15 @@ extension Controller {
             if let view=recorderPanel?.contentView { export(view,"recorder.png") }
             cancelRecording()
         }
+        preferences.set(true,forKey:"welcomed"); preferences.set("keep",forKey:"unrelated-setting")
+        restoreDefaultSettings()
+        check(paused, "restore defaults preserves pause state")
+        check(holdDuration==3 && haloRadius==20 && number("penWidth",4)==4, "restore resets hold duration halo and pen size")
+        check(binding("freezeKey")==Shortcut(key:2,modifiers:Shortcut.control | Shortcut.option) && binding("spotKey").key==1, "restore resets recorded shortcuts")
+        check(!bool("halo",false) && bool("ripples",true) && bool("spotAnimation",true), "restore resets effect toggles")
+        check(preferences.object(forKey:"haloColorRGB")==nil && preferences.object(forKey:"borderColorRGB")==nil, "restore resets custom colors")
+        check(bool("welcomed",false) && preferences.string(forKey:"unrelated-setting")=="keep", "restore preserves onboarding and unrelated settings")
+        check(effectPreviews.count==2 && holdLabel?.stringValue.contains("3") == true, "restore rebuilds settings and previews")
         settings?.close(); preferences.removePersistentDomain(forName:suite)
         print("\(checks) interaction checks passed; native APIs and synthetic local events, not physical keyboard acceptance")
         NSApp.terminate(nil)

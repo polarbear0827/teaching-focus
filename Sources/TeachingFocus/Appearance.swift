@@ -78,3 +78,27 @@ extension Controller {
         document.setFrameSize(NSSize(width:scroll.contentSize.width,height:max(scroll.contentSize.height,stack.fittingSize.height+48)))
     }
 }
+
+
+extension Controller {
+    @objc func confirmResetSettings() {
+        let prompt=NSAlert()
+        prompt.messageText="還原預設設定？"
+        prompt.informativeText="將還原顏色、大小、效果開關、快捷鍵及 Esc 長按時間，並結束目前講解、清除畫布。暫停狀態與 macOS 權限不會變更。"
+        prompt.addButton(withTitle:"還原設定"); prompt.addButton(withTitle:"取消")
+        prompt.window.level = .init(rawValue:Int(CGWindowLevelForKey(.screenSaverWindow))+4)
+        if prompt.runModal() == .alertFirstButtonReturn { restoreDefaultSettings() }
+    }
+    func restoreDefaultSettings() {
+        recorderPanel?.close(); end(); doubleTap.cancel(); hold.cancel(); escape.reset()
+        let keys=["radius","dim","borderWidth","glow","border","spotAnimation","halo","ripples","disableDoubleControl","borderColor","borderColorRGB","haloColorRGB","haloRadius","freezeKey","spotKey","freezeKeyModifiers","spotKeyModifiers","holdSeconds","penWidth"]
+        for key in keys { preferences.removeObject(forKey:key) }
+        tool=0; colorIndex=0
+        NSColorPanel.shared.orderOut(nil)
+        settings?.close(); settings=nil; settingsScroll=nil; settingsStack=nil
+        effectPreviews.removeAll(); shortcutLabels.removeAll()
+        pauseButton=nil; inputStatusLabel=nil; holdLabel=nil; haloSizeLabel=nil; instructionsLabel=nil
+        registerSavedShortcuts(); showSettings(); refreshStatus()
+        windows.forEach { $0.contentView?.needsDisplay=true }
+    }
+}
