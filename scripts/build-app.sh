@@ -3,8 +3,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 swift build -c release --arch arm64
 BIN_DIR=$(swift build -c release --arch arm64 --show-bin-path)
-APP="../TeachingFocus.app"
-mkdir -p "$APP/Contents/MacOS"
+APP="${TEACHINGFOCUS_APP_PATH:-../TeachingFocus.app}"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+cp Assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp "$BIN_DIR/TeachingFocus" "$APP/Contents/MacOS/TeachingFocus"
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -14,9 +15,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>tw.teachingfocus.mac</string>
 <key>CFBundleName</key><string>TeachingFocus</string>
 <key>CFBundleDisplayName</key><string>教學聚光燈</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>1.0.0</string>
-<key>CFBundleVersion</key><string>1</string>
+<key>CFBundleVersion</key><string>2</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>LSUIElement</key><true/>
 <key>NSHighResolutionCapable</key><true/>

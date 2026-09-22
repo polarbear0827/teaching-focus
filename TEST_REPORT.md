@@ -1,4 +1,4 @@
-# TeachingFocus 1.0 測試報告
+# TeachingFocus v1.0.0-beta.2 測試報告
 
 日期：2026-09-22。結論：**已產出可試用版本；尚未完成全部現場驗收。**
 
@@ -7,7 +7,7 @@
 - MacBook Air、Apple M4、24 GB RAM；macOS 26.6.2（25G83）。
 - Swift 6.4，arm64 Release；Mach-O 最低系統版本為 macOS 13.0。
 - 內建 Retina 邏輯尺寸 1470×956、scale 2；TYPE-C 960×640、scale 1；DELL P2717H 1920×1080、scale 1。三螢幕採延伸桌面。
-- 最終執行檔 SHA-256：`bc6c0ef501fa9f852449947e7df75005854096dadf08232c68ba76ab191ecb14`。
+- 最終執行檔 SHA-256：`cda6ed07279c742f1d41d7ebeaa8c56ae675b32a737d31bb982cda21585c7e9e`。
 - 程式由命令列開發環境啟動時，診斷顯示輔助使用與畫面擷取均可用；此結果不能替代使用者雙擊啟動後的獨立 TCC 權限驗收。
 
 ## 自動測試
@@ -71,3 +71,7 @@
 ./scripts/test.sh          # build + 17 core checks + 34 render checks
 ./scripts/test.sh --live   # additionally check permission status and capture each display
 ```
+
+## beta.2 圖示封裝複驗
+
+新增 Assets/AppIcon.png 與 AppIcon.icns，Info.plist 綁定 AppIcon；build number 為 2。重新建置通過 17 項核心測試；含圖示的 app 通過 codesign 嚴格完整性檢查及 34 項離屏檢查。圖示有透明背景、無文字；實際生成提示詞見 Assets/ICON_PROMPT.md。簽章仍為 ad-hoc，Gatekeeper 仍為 rejected，沒有將此狀態標示為正式簽署成功。

@@ -1,5 +1,7 @@
 # 教學聚光燈 TeachingFocus
 
+![App icon](Assets/AppIcon.png)
+
 Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Windows 不在本次交付範圍。
 
 ## 啟動
@@ -43,10 +45,10 @@ Mac 原生教學畫筆與聚光燈。目標：macOS 13+、Apple Silicon。Window
 
 ## GitHub 預覽版本
 
-Repository：<https://github.com/polarbear0827/teaching-focus>（私人）。
+Repository：<https://github.com/polarbear0827/teaching-focus>（公開）。
 
 下載：<https://github.com/polarbear0827/teaching-focus/releases>。DMG 開啟後，將 TeachingFocus 拖入 Applications。ZIP 與 DMG 內的程式相同。
 
-目前為 `v1.0.0-beta.1` 預覽版。**只有 ad-hoc 本機簽章；尚未 Developer ID 簽署或 Apple 公證，Gatekeeper 評估為 rejected。** 請見 [簽章報告](SIGNING_REPORT.md)。若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
+目前為 `v1.0.0-beta.2` 預覽版。**只有 ad-hoc 本機簽章；尚未 Developer ID 簽署或 Apple 公證，Gatekeeper 評估為 rejected。** 請見 [簽章報告](SIGNING_REPORT.md)。若系統阻擋，確認來源與 SHA-256 後，可由使用者在系統設定依 macOS 提示允許開啟；不要停用 Gatekeeper。
 
-YEYE 品牌圖示尚待風格確認，本版未加入該圖示。
+本版已加入無文字游標角色與螢光聚光燈 icon。YEYE 未提供特定參考圖，本圖為圓潤俏皮的原創視覺方向。
