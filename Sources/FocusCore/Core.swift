@@ -20,10 +20,11 @@ public struct DoubleTap {
 public struct Hold {
     public private(set) var start: Double?
     private var fired = false
+    private var duration = 3.0
     public init() {}
-    public mutating func press(_ time: Double) { if start == nil { start = time; fired = false } }
+    public mutating func press(_ time: Double, duration: Double = 3) { if start == nil { start = time; fired = false; self.duration = duration.isFinite ? min(10, max(0.5, duration)) : 3 } }
     public mutating func cancel() { start = nil; fired = false }
-    public func progress(_ time: Double) -> Double { start.map { min(1, max(0, (time - $0) / 3)) } ?? 0 }
+    public func progress(_ time: Double) -> Double { start.map { min(1, max(0, (time - $0) / duration)) } ?? 0 }
     public mutating func tick(_ time: Double) -> Bool {
         if start != nil && !fired && progress(time) >= 1 { fired = true; return true }; return false
     }
@@ -38,3 +39,16 @@ public struct History<T> {
     public mutating func clear() { items.removeAll(); future.removeAll() }
 }
 public func localPoint(_ point: CGPoint, frame: CGRect) -> CGPoint { CGPoint(x: point.x - frame.minX, y: point.y - frame.minY) }
+
+public struct SpotlightEntrance {
+    private var started: Double?
+    public init() {}
+    public mutating func begin(_ time: Double) { started = time }
+    public mutating func reset() { started = nil }
+    public func sample(_ time: Double, reducedMotion: Bool = false) -> (scale: Double, opacity: Double, animating: Bool) {
+        guard !reducedMotion, let started else { return (1, 1, false) }
+        let progress = min(1, max(0, (time - started) / 0.25))
+        let eased = 1 - pow(1 - progress, 3)
+        return (1 + 0.65 * (1 - eased), eased, progress < 1)
+    }
+}
